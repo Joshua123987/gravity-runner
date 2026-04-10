@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+
+<title>Gravity Flip Runner</title>
+
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    font-family: Arial, sans-serif;
+}
+
+canvas {
+    display: block;
+    margin: auto;
+}
+
+button {
+    position: absolute;
+    padding: 12px 22px;
+    font-size: 18px;
+    border-radius: 12px;
+    border: none;
+    background: #00ffff;
+    color: black;
+    font-weight: bold;
+}
+
+#playBtn {
+    top: 260px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#shootBtn { bottom: 30px; right: 30px; display: none; }
+#flipBtn { bottom: 30px; left: 30px; display: none; }
+
+#retryBtn {
+    top: 240px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+}
+
+#homeBtn {
+    top: 300px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game" width="800" height="400"></canvas>
+
+<button id="playBtn">PLAY</button>
+<button id="shootBtn">SHOOT</button>
+<button id="flipBtn">FLIP</button>
+<button id="retryBtn">RETRY</button>
+<button id="homeBtn">HOME</button>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// ===== STATE =====
+let state = "menu";
+let gameOver = false;
+let score = 0;
+
+// ===== IMAGES =====
+let playerImg = new Image();
+playerImg.src = "assets/player.png";
+
+let enemyImg = new Image();
+enemyImg.src = "assets/enemy.png";
+
+// ===== MUSIC =====
+let menuMusic = new Audio("assets/menu.mp3");
+let gameMusic = new Audio("assets/game.mp3");
+
+menuMusic.loop = true;
+gameMusic.loop = true;
+
+// ===== PLAYER =====
+let player = {
+    x: 120,
+    y: 350,
+    size: 40,
+    velocity: 0,
+    gravity: 0.8,
+    onCeiling: false
+};
+
+// ===== OBJECTS =====
+let enemies = [];
+let bullets = [];
+let obstacles = [];
+
+let speed = 4;
+
+// ===== STARS =====
+let stars = [];
+for (let i = 0; i < 60; i++) {
+    stars.push({
+        x: Math.random() * 800,
+        y: Math.random() * 400
+    });
+}
+
+// ===== INPUT =====
+document.addEventListener("keydown", (e) => {
+    if (state !== "game") return;
+
+    if (e.code === "Space") flip();
+    if (e.code === "KeyF") shoot();
+});
+
+// ===== BUTTONS =====
+playBtn.onclick = startGame;
+shootBtn.onclick = shoot;
+flipBtn.onclick = flip;
+retryBtn.onclick = startGame;
+homeBtn.onclick = goHome;
+
+// ===== FUNCTIONS =====
+function flip() {
+    if (gameOver) return;
+    player.onCeiling = !player.onCeiling;
+    player.velocity = 0;
+}
+
+function shoot() {
+    if (gameOver) return;
+    bullets.push({
+        x: player.x + 40,
+        y: player.y + 20,
+        size: 8,
+        speed: 8
+    });
+}
+
+function startGame() {
+    state = "game";
+    gameOver = false;
+
+    enemies = [];
+    bullets = [];
+    obstacles = [];
+    score = 0;
+
+    // music switch
+    menuMusic.pause();
+    gameMusic.currentTime = 0;
+    gameMusic.play();
+
+    playBtn.style.display = "none";
+    retryBtn.style.display = "none";
+    homeBtn.style.display = "none";
+
+    shootBtn.style.display = "block";
+    flipBtn.style.display = "block";
+}
+
+function goHome() {
+    state = "menu";
+    gameOver = false;
+
+    // music switch
+    gameMusic.pause();
+    menuMusic.currentTime = 0;
+    menuMusic.play();
+
+    playBtn.style.display = "block";
+    retryBtn.style.display = "none";
+    homeBtn.style.display = "none";
+
+    shootBtn.style.display = "none";
+    flipBtn.style.display = "none";
+}
+
+// ===== SPAWN =====
+let enemyTimer = 0;
+let obstacleTimer = 0;
+
+function spawnEnemy() {
+    enemies.push({
+        x: 900,
+        y: Math.random() * 250 + 50,
+        size: 40,
+        speed: speed,
+        flyOffset: Math.random()
+    });
+}
+
+function spawnObstacle() {
+    obstacles.push({
+        x: 900,
+        y: Math.random() < 0.5 ? 350 : 10,
+        size: 40
+    });
+}
+
+// ===== UPDATE =====
+function update() {
+
+    if (state === "menu") {
+        for (let s of stars) {
+            s.x -= 0.3;
+            if (s.x < 0) s.x = 800;
+        }
+        return;
+    }
+
+    if (gameOver) return;
+
+    // PLAYER
+    if (player.onCeiling) {
+        player.velocity -= player.gravity;
+        player.y += player.velocity;
+        if (player.y <= 10) player.y = 10;
+    } else {
+        player.velocity += player.gravity;
+        player.y += player.velocity;
+        if (player.y >= 350) player.y = 350;
+    }
+
+    // BULLETS
+    for (let b of bullets) b.x += b.speed;
+    bullets = bullets.filter(b => b.x < 900);
+
+    // ENEMIES
+    for (let e of enemies) {
+        e.x -= e.speed;
+        e.y += Math.sin(Date.now() / 200 + e.flyOffset) * 1.5;
+    }
+
+    // OBSTACLES
+    for (let o of obstacles) o.x -= speed;
+
+    enemies = enemies.filter(e => e.x > -100);
+    obstacles = obstacles.filter(o => o.x > -100);
+
+    // BULLET vs ENEMY
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        for (let j = bullets.length - 1; j >= 0; j--) {
+
+            let e = enemies[i];
+            let b = bullets[j];
+
+            if (
+                b.x < e.x + e.size &&
+                b.x + b.size > e.x &&
+                b.y < e.y + e.size &&
+                b.y + b.size > e.y
+            ) {
+                enemies.splice(i, 1);
+                bullets.splice(j, 1);
+                score += 50;
+                break;
+            }
+        }
+    }
+
+    // COLLISIONS
+    for (let e of enemies) {
+        if (
+            player.x < e.x + e.size &&
+            player.x + player.size > e.x &&
+            player.y < e.y + e.size &&
+            player.y + player.size > e.y
+        ) gameOver = true;
+    }
+
+    for (let o of obstacles) {
+        if (
+            player.x < o.x + o.size &&
+            player.x + player.size > o.x &&
+            player.y < o.y + o.size &&
+            player.y + player.size > o.y
+        ) gameOver = true;
+    }
+
+    if (gameOver) {
+        retryBtn.style.display = "block";
+        homeBtn.style.display = "block";
+        gameMusic.pause();
+    }
+
+    score++;
+
+    if (enemyTimer++ > 120) {
+        spawnEnemy();
+        enemyTimer = 0;
+    }
+
+    if (obstacleTimer++ > 90) {
+        spawnObstacle();
+        obstacleTimer = 0;
+    }
+}
+
+// ===== TRIANGLES =====
+function drawTriangle(o) {
+    ctx.save();
+
+    ctx.translate(o.x + o.size/2, o.y + o.size/2);
+
+    if (o.y === 10) ctx.rotate(Math.PI);
+
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.moveTo(0, -o.size/2);
+    ctx.lineTo(-o.size/2, o.size/2);
+    ctx.lineTo(o.size/2, o.size/2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// ===== DRAW =====
+function draw() {
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, 800, 400);
+
+    // stars
+    ctx.fillStyle = "white";
+    for (let s of stars) {
+        ctx.fillRect(s.x, s.y, 2, 2);
+    }
+
+    if (state === "menu") {
+        ctx.fillStyle = "white";
+        ctx.font = "42px Arial";
+        ctx.fillText("Gravity Flip Runner", 140, 150);
+        return;
+    }
+
+    // lines
+    ctx.fillStyle = "#00ffff";
+    ctx.fillRect(0, 8, 800, 3);
+    ctx.fillRect(0, 390, 800, 3);
+
+    // player
+    if (playerImg.complete)
+        ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+
+    // enemies
+    if (enemyImg.complete)
+        for (let e of enemies)
+            ctx.drawImage(enemyImg, e.x, e.y, e.size, e.size);
+
+    // obstacles
+    for (let o of obstacles) drawTriangle(o);
+
+    // bullets
+    ctx.fillStyle = "yellow";
+    for (let b of bullets)
+        ctx.fillRect(b.x, b.y, b.size, b.size);
+
+    // UI
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("Score: " + score, 15, 30);
+
+    if (gameOver) {
+        ctx.textAlign = "center";
+        ctx.font = "42px Arial";
+        ctx.fillText("GAME OVER", 400, 180);
+    }
+}
+
+// ===== LOOP =====
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+
+// start menu music AFTER first click
+document.body.addEventListener("click", () => {
+    if (state === "menu") {
+        menuMusic.play();
+    }
+}, { once: true });
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js")
+    .then(() => console.log("Service Worker Registered"));
+}
+
+</script>
+
+</body>
+</html>
