@@ -127,11 +127,20 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ===== BUTTONS =====
-playBtn.onclick = startGame;
-shootBtn.onclick = shoot;
-flipBtn.onclick = flip;
-retryBtn.onclick = startGame;
-homeBtn.onclick = goHome;
+playBtn.addEventListener("click", startGame);
+retryBtn.addEventListener("click", startGame);
+homeBtn.addEventListener("click", goHome);
+
+// MOBILE SAFE INPUT (NO ZOOM BUGS)
+shootBtn.addEventListener("touchstart", function(e) {
+    e.preventDefault();
+    shoot();
+});
+
+flipBtn.addEventListener("touchstart", function(e) {
+    e.preventDefault();
+    flip();
+});
 
 // ===== FUNCTIONS =====
 function flip() {
